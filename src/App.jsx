@@ -1,13 +1,23 @@
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Navbar from "./components/Navbar";
+
+import Home from "./pages/Home";
+import Products from "./pages/Products";
+import Employees from "./pages/Employees";
+import Login from "./pages/Login";
 
 function App() {
   return (
-    <div>
+    <BrowserRouter>
       <Navbar />
 
-      <h1>Pro Business App</h1>
-      <p>Welcome to our business management system.</p>
-    </div>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/products" element={<Products />} />
+        <Route path="/employees" element={<Employees />} />
+        <Route path="/login" element={<Login />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
