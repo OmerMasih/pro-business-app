@@ -1,3 +1,6 @@
+import { Link } from "react-router-dom";
+import "./Home.css";
+
 import "./Home.css";
 
 function Home() {
@@ -18,8 +21,10 @@ function Home() {
           </p>
 
           <div className="hero-buttons">
-            <button>Get Started</button>
-            <button className="secondary-button">Learn More</button>
+            <Link to="/login">Get Started</Link>
+            <Link to="/products" className="secondary-button">
+              Learn More
+            </Link>
           </div>
         </div>
       </section>
