@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import "./Login.css";
 
 function Login() {
@@ -15,6 +16,9 @@ function Login() {
           <input type="password" placeholder="Enter your password" />
 
           <button type="submit">Login</button>
+          <p className="register-link">
+            Don't have an account? <Link to="/register">Create Account</Link>
+          </p>
         </form>
       </div>
     </main>
