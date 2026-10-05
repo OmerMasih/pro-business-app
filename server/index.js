@@ -1,9 +1,11 @@
 const express = require("express");
+const cors = require("cors");
 
 const app = express();
 
 const PORT = 5000;
 
+app.use(cors());
 app.use(express.json());
 
 app.get("/", (req, res) => {
@@ -30,6 +32,18 @@ app.get("/api/products", (req, res) => {
   ];
 
   res.json(products);
+});
+
+app.post("/api/products", (req, res) => {
+  const { name, price } = req.body;
+
+  res.json({
+    message: "Product received successfully",
+    product: {
+      name: name,
+      price: price,
+    },
+  });
 });
 
 app.listen(PORT, () => {
