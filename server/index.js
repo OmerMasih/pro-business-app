@@ -3,7 +3,10 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+
 const Product = require("./models/Product");
+const User = require("./models/User");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -12,12 +15,18 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// 1. TEST: Check whether the API is running
+// =========================
+// TEST API
+// =========================
+
 app.get("/", (req, res) => {
   res.send("Pro Business API is running!");
 });
 
-// 2. READ: Get all products
+// =========================
+// PRODUCTS: READ
+// =========================
+
 app.get("/api/products", async (req, res) => {
   try {
     const products = await Product.find().sort({
@@ -27,12 +36,15 @@ app.get("/api/products", async (req, res) => {
     res.json(products);
   } catch (error) {
     res.status(500).json({
-      message: "Failed to fetch products",
+      message: "Failed to fetch products.",
     });
   }
 });
 
-// 3. CREATE: Add a new product
+// =========================
+// PRODUCTS: CREATE
+// =========================
+
 app.post("/api/products", async (req, res) => {
   try {
     const { name, price } = req.body;
@@ -45,13 +57,16 @@ app.post("/api/products", async (req, res) => {
     res.status(201).json(product);
   } catch (error) {
     res.status(400).json({
-      message: "Failed to create product",
+      message: "Failed to create product.",
       error: error.message,
     });
   }
 });
 
-// 4. UPDATE: Edit an existing product
+// =========================
+// PRODUCTS: UPDATE
+// =========================
+
 app.put("/api/products/:id", async (req, res) => {
   try {
     const { name, price } = req.body;
@@ -67,41 +82,121 @@ app.put("/api/products/:id", async (req, res) => {
 
     if (!product) {
       return res.status(404).json({
-        message: "Product not found",
+        message: "Product not found.",
       });
     }
 
     res.json(product);
   } catch (error) {
     res.status(400).json({
-      message: "Failed to update product",
-      error: error.message,
+      message: "Failed to update product.",
     });
   }
 });
 
-// 5. DELETE: Remove a product
+// =========================
+// PRODUCTS: DELETE
+// =========================
+
 app.delete("/api/products/:id", async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
 
     if (!product) {
       return res.status(404).json({
-        message: "Product not found",
+        message: "Product not found.",
       });
     }
 
     res.json({
-      message: "Product deleted successfully",
+      message: "Product deleted successfully.",
     });
   } catch (error) {
     res.status(400).json({
-      message: "Failed to delete product",
+      message: "Failed to delete product.",
     });
   }
 });
 
-// Start the server after connecting to MongoDB
+// =========================
+// USERS: REGISTER
+// =========================
+
+app.post("/api/auth/register", async (req, res) => {
+  try {
+    const { fullName, email, password } = req.body;
+
+    // Validate required fields
+    if (
+      typeof fullName !== "string" ||
+      typeof email !== "string" ||
+      typeof password !== "string" ||
+      !fullName.trim() ||
+      !email.trim() ||
+      !password
+    ) {
+      return res.status(400).json({
+        message: "Please complete all required fields.",
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        message: "Password must be at least 8 characters.",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    // Check whether this email is already registered
+    const existingUser = await User.findOne({
+      email: normalizedEmail,
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        message: "An account with this email already exists.",
+      });
+    }
+
+    // Hash the password before saving it
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    const user = await User.create({
+      fullName: fullName.trim(),
+      email: normalizedEmail,
+      password: hashedPassword,
+    });
+
+    // Never send the password or password hash to the browser
+    res.status(201).json({
+      message: "Account created successfully!",
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    // Handle duplicate email if two requests arrive together
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "An account with this email already exists.",
+      });
+    }
+
+    console.error("Registration error:", error.message);
+
+    res.status(500).json({
+      message: "Registration failed. Please try again.",
+    });
+  }
+});
+
+// =========================
+// START SERVER
+// =========================
+
 async function startServer() {
   try {
     await mongoose.connect(process.env.MONGO_URI);
