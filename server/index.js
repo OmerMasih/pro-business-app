@@ -197,6 +197,60 @@ app.post("/api/auth/register", async (req, res) => {
 // START SERVER
 // =========================
 
+/* =========================
+   USERS: LOGIN
+========================= */
+
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (
+      typeof email !== "string" ||
+      typeof password !== "string" ||
+      !email.trim() ||
+      !password
+    ) {
+      return res.status(400).json({
+        message: "Please enter your email and password.",
+      });
+    }
+
+    const user = await User.findOne({
+      email: email.trim().toLowerCase(),
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid email or password.",
+      });
+    }
+
+    const passwordMatches = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatches) {
+      return res.status(401).json({
+        message: "Invalid email or password.",
+      });
+    }
+
+    res.json({
+      message: "Login successful!",
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error.message);
+
+    res.status(500).json({
+      message: "Login failed. Please try again.",
+    });
+  }
+});
+
 async function startServer() {
   try {
     await mongoose.connect(process.env.MONGO_URI);

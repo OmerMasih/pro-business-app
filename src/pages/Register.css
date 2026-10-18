@@ -66,3 +66,24 @@
 .register-card button:hover {
   background: #1d4ed8;
 }
+
+.register-error {
+  color: #b91c1c;
+  background: #fee2e2;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.register-success {
+  color: #166534;
+  background: #dcfce7;
+  padding: 10px;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.register-card button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
