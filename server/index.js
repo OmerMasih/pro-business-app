@@ -7,6 +7,7 @@ const bcrypt = require("bcryptjs");
 
 const Product = require("./models/Product");
 const User = require("./models/User");
+const Employee = require("./models/Employee");
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -77,7 +78,7 @@ app.put("/api/products/:id", async (req, res) => {
       {
         new: true,
         runValidators: true,
-      }
+      },
     );
 
     if (!product) {
@@ -189,6 +190,129 @@ app.post("/api/auth/register", async (req, res) => {
 
     res.status(500).json({
       message: "Registration failed. Please try again.",
+    });
+  }
+});
+
+// =========================
+// EMPLOYEES: READ AND SEARCH
+// =========================
+
+app.get("/api/employees", async (req, res) => {
+  try {
+    const search = req.query.search || "";
+
+    const employees = await Employee.find({
+      $or: [
+        { fullName: { $regex: search, $options: "i" } },
+        { position: { $regex: search, $options: "i" } },
+      ],
+    }).sort({ createdAt: -1 });
+
+    res.json(employees);
+  } catch (error) {
+    res.status(500).json({
+      message: "Failed to fetch employees.",
+    });
+  }
+});
+
+// =========================
+// EMPLOYEES: CREATE
+// =========================
+
+app.post("/api/employees", async (req, res) => {
+  try {
+    const { fullName, email, phone, position, salary, status } = req.body;
+
+    const employee = await Employee.create({
+      fullName,
+      email,
+      phone,
+      position,
+      salary,
+      status,
+    });
+
+    res.status(201).json(employee);
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "An employee with this email already exists.",
+      });
+    }
+
+    res.status(400).json({
+      message: "Failed to create employee.",
+      error: error.message,
+    });
+  }
+});
+
+// =========================
+// EMPLOYEES: UPDATE
+// =========================
+
+app.put("/api/employees/:id", async (req, res) => {
+  try {
+    const { fullName, email, phone, position, salary, status } = req.body;
+
+    const employee = await Employee.findByIdAndUpdate(
+      req.params.id,
+      {
+        fullName,
+        email,
+        phone,
+        position,
+        salary,
+        status,
+      },
+      {
+        new: true,
+        runValidators: true,
+      },
+    );
+
+    if (!employee) {
+      return res.status(404).json({
+        message: "Employee not found.",
+      });
+    }
+
+    res.json(employee);
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "An employee with this email already exists.",
+      });
+    }
+
+    res.status(400).json({
+      message: "Failed to update employee.",
+    });
+  }
+});
+
+// =========================
+// EMPLOYEES: DELETE
+// =========================
+
+app.delete("/api/employees/:id", async (req, res) => {
+  try {
+    const employee = await Employee.findByIdAndDelete(req.params.id);
+
+    if (!employee) {
+      return res.status(404).json({
+        message: "Employee not found.",
+      });
+    }
+
+    res.json({
+      message: "Employee deleted successfully.",
+    });
+  } catch (error) {
+    res.status(400).json({
+      message: "Failed to delete employee.",
     });
   }
 });
