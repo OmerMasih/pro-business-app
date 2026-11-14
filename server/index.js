@@ -5,7 +5,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 
-const Product = require("./models/Product");
+const Product = require("./models/product");
 const User = require("./models/User");
 const Employee = require("./models/Employee");
 
