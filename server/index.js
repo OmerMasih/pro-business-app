@@ -4,6 +4,7 @@ const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 const Product = require("./models/product");
 const User = require("./models/User");
@@ -12,9 +13,40 @@ const Employee = require("./models/Employee");
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// =========================
+// MIDDLEWARE
+// =========================
+
 app.use(cors());
 app.use(express.json());
+
+// =========================
+// JWT AUTHENTICATION
+// =========================
+
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers.authorization;
+
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({
+      message: "Please log in to access this resource.",
+    });
+  }
+
+  const token = authHeader.split(" ")[1];
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+    req.user = decoded;
+
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      message: "Your session is invalid or expired. Please log in again.",
+    });
+  }
+}
 
 // =========================
 // TEST API
@@ -25,10 +57,153 @@ app.get("/", (req, res) => {
 });
 
 // =========================
+// USERS: REGISTER
+// =========================
+
+app.post("/api/auth/register", async (req, res) => {
+  try {
+    const { fullName, email, password } = req.body;
+
+    if (
+      typeof fullName !== "string" ||
+      typeof email !== "string" ||
+      typeof password !== "string" ||
+      !fullName.trim() ||
+      !email.trim() ||
+      !password
+    ) {
+      return res.status(400).json({
+        message: "Please complete all required fields.",
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        message: "Password must be at least 8 characters.",
+      });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({
+        message: "Authentication is not configured.",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const existingUser = await User.findOne({
+      email: normalizedEmail,
+    });
+
+    if (existingUser) {
+      return res.status(409).json({
+        message: "An account with this email already exists.",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    const user = await User.create({
+      fullName: fullName.trim(),
+      email: normalizedEmail,
+      password: hashedPassword,
+    });
+
+    res.status(201).json({
+      message: "Account created successfully!",
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "An account with this email already exists.",
+      });
+    }
+
+    console.error("Registration error:", error.message);
+
+    res.status(500).json({
+      message: "Registration failed. Please try again.",
+    });
+  }
+});
+
+// =========================
+// USERS: LOGIN
+// =========================
+
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (
+      typeof email !== "string" ||
+      typeof password !== "string" ||
+      !email.trim() ||
+      !password
+    ) {
+      return res.status(400).json({
+        message: "Please enter your email and password.",
+      });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({
+        message: "Authentication is not configured.",
+      });
+    }
+
+    const user = await User.findOne({
+      email: email.trim().toLowerCase(),
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid email or password.",
+      });
+    }
+
+    const passwordMatches = await bcrypt.compare(password, user.password);
+
+    if (!passwordMatches) {
+      return res.status(401).json({
+        message: "Invalid email or password.",
+      });
+    }
+
+    const token = jwt.sign(
+      { userId: user._id.toString() },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" },
+    );
+
+    res.json({
+      message: "Login successful!",
+      token,
+      user: {
+        id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error.message);
+
+    res.status(500).json({
+      message: "Login failed. Please try again.",
+    });
+  }
+});
+
+// =========================
 // PRODUCTS: READ
 // =========================
 
-app.get("/api/products", async (req, res) => {
+app.get("/api/products", authenticateToken, async (req, res) => {
   try {
     const products = await Product.find().sort({
       createdAt: -1,
@@ -36,6 +211,8 @@ app.get("/api/products", async (req, res) => {
 
     res.json(products);
   } catch (error) {
+    console.error("Product fetch error:", error.message);
+
     res.status(500).json({
       message: "Failed to fetch products.",
     });
@@ -46,7 +223,7 @@ app.get("/api/products", async (req, res) => {
 // PRODUCTS: CREATE
 // =========================
 
-app.post("/api/products", async (req, res) => {
+app.post("/api/products", authenticateToken, async (req, res) => {
   try {
     const { name, price } = req.body;
 
@@ -68,7 +245,7 @@ app.post("/api/products", async (req, res) => {
 // PRODUCTS: UPDATE
 // =========================
 
-app.put("/api/products/:id", async (req, res) => {
+app.put("/api/products/:id", authenticateToken, async (req, res) => {
   try {
     const { name, price } = req.body;
 
@@ -99,7 +276,7 @@ app.put("/api/products/:id", async (req, res) => {
 // PRODUCTS: DELETE
 // =========================
 
-app.delete("/api/products/:id", async (req, res) => {
+app.delete("/api/products/:id", authenticateToken, async (req, res) => {
   try {
     const product = await Product.findByIdAndDelete(req.params.id);
 
@@ -120,97 +297,26 @@ app.delete("/api/products/:id", async (req, res) => {
 });
 
 // =========================
-// USERS: REGISTER
-// =========================
-
-app.post("/api/auth/register", async (req, res) => {
-  try {
-    const { fullName, email, password } = req.body;
-
-    // Validate required fields
-    if (
-      typeof fullName !== "string" ||
-      typeof email !== "string" ||
-      typeof password !== "string" ||
-      !fullName.trim() ||
-      !email.trim() ||
-      !password
-    ) {
-      return res.status(400).json({
-        message: "Please complete all required fields.",
-      });
-    }
-
-    if (password.length < 8) {
-      return res.status(400).json({
-        message: "Password must be at least 8 characters.",
-      });
-    }
-
-    const normalizedEmail = email.trim().toLowerCase();
-
-    // Check whether this email is already registered
-    const existingUser = await User.findOne({
-      email: normalizedEmail,
-    });
-
-    if (existingUser) {
-      return res.status(409).json({
-        message: "An account with this email already exists.",
-      });
-    }
-
-    // Hash the password before saving it
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    const user = await User.create({
-      fullName: fullName.trim(),
-      email: normalizedEmail,
-      password: hashedPassword,
-    });
-
-    // Never send the password or password hash to the browser
-    res.status(201).json({
-      message: "Account created successfully!",
-      user: {
-        id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-      },
-    });
-  } catch (error) {
-    // Handle duplicate email if two requests arrive together
-    if (error.code === 11000) {
-      return res.status(409).json({
-        message: "An account with this email already exists.",
-      });
-    }
-
-    console.error("Registration error:", error.message);
-
-    res.status(500).json({
-      message: "Registration failed. Please try again.",
-    });
-  }
-});
-
-// =========================
 // EMPLOYEES: READ AND SEARCH
 // =========================
 
-app.get("/api/employees", async (req, res) => {
+app.get("/api/employees", authenticateToken, async (req, res) => {
   try {
-    const search = req.query.search || "";
+    const search = String(req.query.search || "").slice(0, 100);
 
     const employees = await Employee.find({
       $or: [
         { fullName: { $regex: search, $options: "i" } },
         { position: { $regex: search, $options: "i" } },
       ],
-    }).sort({ createdAt: -1 });
+    }).sort({
+      createdAt: -1,
+    });
 
     res.json(employees);
   } catch (error) {
+    console.error("Employee fetch error:", error.message);
+
     res.status(500).json({
       message: "Failed to fetch employees.",
     });
@@ -221,7 +327,7 @@ app.get("/api/employees", async (req, res) => {
 // EMPLOYEES: CREATE
 // =========================
 
-app.post("/api/employees", async (req, res) => {
+app.post("/api/employees", authenticateToken, async (req, res) => {
   try {
     const { fullName, email, phone, position, salary, status } = req.body;
 
@@ -253,7 +359,7 @@ app.post("/api/employees", async (req, res) => {
 // EMPLOYEES: UPDATE
 // =========================
 
-app.put("/api/employees/:id", async (req, res) => {
+app.put("/api/employees/:id", authenticateToken, async (req, res) => {
   try {
     const { fullName, email, phone, position, salary, status } = req.body;
 
@@ -297,7 +403,7 @@ app.put("/api/employees/:id", async (req, res) => {
 // EMPLOYEES: DELETE
 // =========================
 
-app.delete("/api/employees/:id", async (req, res) => {
+app.delete("/api/employees/:id", authenticateToken, async (req, res) => {
   try {
     const employee = await Employee.findByIdAndDelete(req.params.id);
 
@@ -321,62 +427,16 @@ app.delete("/api/employees/:id", async (req, res) => {
 // START SERVER
 // =========================
 
-/* =========================
-   USERS: LOGIN
-========================= */
-
-app.post("/api/auth/login", async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    if (
-      typeof email !== "string" ||
-      typeof password !== "string" ||
-      !email.trim() ||
-      !password
-    ) {
-      return res.status(400).json({
-        message: "Please enter your email and password.",
-      });
-    }
-
-    const user = await User.findOne({
-      email: email.trim().toLowerCase(),
-    });
-
-    if (!user) {
-      return res.status(401).json({
-        message: "Invalid email or password.",
-      });
-    }
-
-    const passwordMatches = await bcrypt.compare(password, user.password);
-
-    if (!passwordMatches) {
-      return res.status(401).json({
-        message: "Invalid email or password.",
-      });
-    }
-
-    res.json({
-      message: "Login successful!",
-      user: {
-        id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-      },
-    });
-  } catch (error) {
-    console.error("Login error:", error.message);
-
-    res.status(500).json({
-      message: "Login failed. Please try again.",
-    });
-  }
-});
-
 async function startServer() {
   try {
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET is missing from the .env file.");
+    }
+
+    if (!process.env.MONGO_URI) {
+      throw new Error("MONGO_URI is missing from the .env file.");
+    }
+
     await mongoose.connect(process.env.MONGO_URI);
 
     console.log("MongoDB connected successfully");
@@ -385,7 +445,8 @@ async function startServer() {
       console.log(`Server running on http://localhost:${PORT}`);
     });
   } catch (error) {
-    console.error("MongoDB connection failed:", error.message);
+    console.error("Server startup failed:", error.message);
+    process.exit(1);
   }
 }
 

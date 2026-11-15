@@ -47,3 +47,24 @@ nav li:last-child a {
 nav li:last-child a:hover {
   background-color: #e5e7eb;
 }
+
+.logout-button {
+  background-color: #dc2626;
+  color: white;
+  border: none;
+  padding: 9px 17px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.logout-button:hover {
+  background-color: #b91c1c;
+}
+
+.navbar-user {
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 600;
+}

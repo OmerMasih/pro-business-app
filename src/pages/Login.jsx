@@ -9,7 +9,6 @@ function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [message, setMessage] = useState("");
 
   const navigate = useNavigate();
 
@@ -17,7 +16,6 @@ function Login() {
     event.preventDefault();
 
     setError("");
-    setMessage("");
     setLoading(true);
 
     try {
@@ -35,20 +33,21 @@ function Login() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || "Login failed. Please try again.");
+        throw new Error(data.message || "Login failed.");
       }
 
-      setMessage(`Welcome back, ${data.user.fullName}!`);
+      if (!data.token) {
+        throw new Error("Authentication token was not received.");
+      }
 
-      // Navigate after successful login.
-      // Authentication persistence will be added next.
-      navigate("/products", {
-        state: { welcomeMessage: `Welcome back, ${data.user.fullName}!` },
-      });
+      // Save authentication information
+      localStorage.setItem("token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
+
+      // Go to dashboard
+      navigate("/", { replace: true });
     } catch (error) {
-      setError(
-        error.message || "Could not connect to the server. Please try again."
-      );
+      setError(error.message || "Unable to connect to the server.");
     } finally {
       setLoading(false);
     }
@@ -62,6 +61,7 @@ function Login() {
 
         <form onSubmit={handleSubmit}>
           <label htmlFor="login-email">Email</label>
+
           <input
             id="login-email"
             type="email"
@@ -73,6 +73,7 @@ function Login() {
           />
 
           <label htmlFor="login-password">Password</label>
+
           <input
             id="login-password"
             type="password"
@@ -90,12 +91,6 @@ function Login() {
           {error && (
             <p className="login-error" role="alert">
               {error}
-            </p>
-          )}
-
-          {message && (
-            <p className="login-success" role="status">
-              {message}
             </p>
           )}
 
