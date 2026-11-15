@@ -225,15 +225,40 @@ app.get("/api/products", authenticateToken, async (req, res) => {
 
 app.post("/api/products", authenticateToken, async (req, res) => {
   try {
-    const { name, price } = req.body;
+    const { name, price, description, category, sku, rating, stockQuantity } =
+      req.body;
+
+    if (
+      typeof name !== "string" ||
+      !name.trim() ||
+      price === undefined ||
+      price === "" ||
+      !Number.isFinite(Number(price)) ||
+      Number(price) < 0
+    ) {
+      return res.status(400).json({
+        message: "Please provide a valid product name and price.",
+      });
+    }
 
     const product = await Product.create({
-      name,
-      price,
+      name: name.trim(),
+      price: Number(price),
+      description,
+      category,
+      sku: typeof sku === "string" && sku.trim() ? sku.trim() : undefined,
+      rating,
+      stockQuantity,
     });
 
     res.status(201).json(product);
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "This product SKU already exists.",
+      });
+    }
+
     res.status(400).json({
       message: "Failed to create product.",
       error: error.message,
@@ -247,11 +272,59 @@ app.post("/api/products", authenticateToken, async (req, res) => {
 
 app.put("/api/products/:id", authenticateToken, async (req, res) => {
   try {
-    const { name, price } = req.body;
+    const { name, price, description, category, sku, rating, stockQuantity } =
+      req.body;
+
+    const updates = {};
+
+    if (name !== undefined) {
+      if (typeof name !== "string" || !name.trim()) {
+        return res.status(400).json({
+          message: "Product name cannot be empty.",
+        });
+      }
+
+      updates.name = name.trim();
+    }
+
+    if (price !== undefined) {
+      if (
+        price === "" ||
+        !Number.isFinite(Number(price)) ||
+        Number(price) < 0
+      ) {
+        return res.status(400).json({
+          message: "Please enter a valid price.",
+        });
+      }
+
+      updates.price = Number(price);
+    }
+
+    if (description !== undefined) {
+      updates.description = description;
+    }
+
+    if (category !== undefined) {
+      updates.category = category;
+    }
+
+    if (sku !== undefined) {
+      updates.sku =
+        typeof sku === "string" && sku.trim() ? sku.trim() : undefined;
+    }
+
+    if (rating !== undefined) {
+      updates.rating = rating;
+    }
+
+    if (stockQuantity !== undefined) {
+      updates.stockQuantity = stockQuantity;
+    }
 
     const product = await Product.findByIdAndUpdate(
       req.params.id,
-      { name, price },
+      { $set: updates },
       {
         new: true,
         runValidators: true,
@@ -266,8 +339,15 @@ app.put("/api/products/:id", authenticateToken, async (req, res) => {
 
     res.json(product);
   } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        message: "This product SKU already exists.",
+      });
+    }
+
     res.status(400).json({
       message: "Failed to update product.",
+      error: error.message,
     });
   }
 });
