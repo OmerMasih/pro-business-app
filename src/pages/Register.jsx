@@ -1,9 +1,12 @@
 import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import "./Register.css";
 
 const API_URL = "http://localhost:5000/api/auth/register";
 
 function Register() {
+  const navigate = useNavigate();
+
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,13 +22,11 @@ function Register() {
     setError("");
     setMessage("");
 
-    // Check that both passwords match
     if (password !== confirmPassword) {
       setError("Passwords do not match.");
       return;
     }
 
-    // Check the password length
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -52,16 +53,20 @@ function Register() {
         throw new Error(data.message || "Could not create your account.");
       }
 
-      setMessage("Account created successfully! You can now log in.");
+      setMessage("Account created successfully! Redirecting to Login...");
 
-      // Clear the form after successful registration
       setFullName("");
       setEmail("");
       setPassword("");
       setConfirmPassword("");
+
+      // Redirect to Login after successful registration
+      setTimeout(() => {
+        navigate("/login", { replace: true });
+      }, 1500);
     } catch (error) {
       setError(
-        error.message || "Could not connect to the server. Please try again."
+        error.message || "Could not connect to the server. Please try again.",
       );
     } finally {
       setLoading(false);
@@ -137,6 +142,10 @@ function Register() {
             </p>
           )}
         </form>
+
+        <p className="login-link">
+          Already have an account? <Link to="/login">Login here</Link>
+        </p>
       </div>
     </main>
   );

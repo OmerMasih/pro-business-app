@@ -1,9 +1,12 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./Products.css";
 
 const API_URL = "http://localhost:5000/api/products";
 
 function Products() {
+  const navigate = useNavigate();
+
   const [products, setProducts] = useState([]);
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
@@ -13,12 +16,40 @@ function Products() {
   const [message, setMessage] = useState("");
   const [editingId, setEditingId] = useState(null);
 
+  // Get authentication headers
+  function getAuthHeaders(includeJson = false) {
+    const token = localStorage.getItem("token");
+
+    return {
+      ...(includeJson && {
+        "Content-Type": "application/json",
+      }),
+      Authorization: `Bearer ${token}`,
+    };
+  }
+
+  // Handle expired or invalid login
+  function handleUnauthorized(response) {
+    if (response.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      navigate("/login", { replace: true });
+      return true;
+    }
+
+    return false;
+  }
+
   // Load products from MongoDB
   async function fetchProducts() {
     try {
       setError("");
 
-      const response = await fetch(API_URL);
+      const response = await fetch(API_URL, {
+        headers: getAuthHeaders(),
+      });
+
+      if (handleUnauthorized(response)) return;
 
       if (!response.ok) {
         throw new Error("Failed to load products.");
@@ -27,7 +58,7 @@ function Products() {
       const data = await response.json();
       setProducts(data);
     } catch (error) {
-      setError("Could not load products. Check that your backend is running.");
+      setError(error.message || "Could not load products. Check your backend.");
     } finally {
       setLoading(false);
     }
@@ -72,15 +103,15 @@ function Products() {
         isEditing ? `${API_URL}/${editingId}` : API_URL,
         {
           method: isEditing ? "PUT" : "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: getAuthHeaders(true),
           body: JSON.stringify({
             name: name.trim(),
             price: numericPrice,
           }),
-        }
+        },
       );
+
+      if (handleUnauthorized(response)) return;
 
       const data = await response.json();
 
@@ -91,8 +122,8 @@ function Products() {
       if (isEditing) {
         setProducts((currentProducts) =>
           currentProducts.map((product) =>
-            product._id === editingId ? data : product
-          )
+            product._id === editingId ? data : product,
+          ),
         );
 
         setMessage("Product updated successfully!");
@@ -127,12 +158,10 @@ function Products() {
   // Delete a product
   async function handleDelete(product) {
     const confirmed = window.confirm(
-      `Are you sure you want to delete "${product.name}"?`
+      `Are you sure you want to delete "${product.name}"?`,
     );
 
-    if (!confirmed) {
-      return;
-    }
+    if (!confirmed) return;
 
     setError("");
     setMessage("");
@@ -140,7 +169,10 @@ function Products() {
     try {
       const response = await fetch(`${API_URL}/${product._id}`, {
         method: "DELETE",
+        headers: getAuthHeaders(),
       });
+
+      if (handleUnauthorized(response)) return;
 
       const data = await response.json();
 
@@ -149,7 +181,7 @@ function Products() {
       }
 
       setProducts((currentProducts) =>
-        currentProducts.filter((item) => item._id !== product._id)
+        currentProducts.filter((item) => item._id !== product._id),
       );
 
       if (editingId === product._id) {
@@ -159,7 +191,7 @@ function Products() {
       setMessage("Product deleted successfully!");
     } catch (error) {
       setError(
-        error.message || "Could not delete the product. Check your backend."
+        error.message || "Could not delete the product. Check your backend.",
       );
     }
   }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./Employees.css";
 
 const API_URL = "http://localhost:5000/api/employees";
@@ -22,6 +23,31 @@ function Employees() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
+  const navigate = useNavigate();
+
+  // Authentication headers
+  function getAuthHeaders(includeJson = false) {
+    const token = localStorage.getItem("token");
+
+    return {
+      ...(includeJson ? { "Content-Type": "application/json" } : {}),
+      Authorization: `Bearer ${token}`,
+    };
+  }
+
+  // Handle expired or invalid authentication
+  function handleUnauthorized(response) {
+    if (response.status === 401) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+
+      navigate("/login", { replace: true });
+      return true;
+    }
+
+    return false;
+  }
+
   // Fetch employees from MongoDB
   async function fetchEmployees(searchTerm = search) {
     try {
@@ -29,7 +55,12 @@ function Employees() {
 
       const response = await fetch(
         `${API_URL}?search=${encodeURIComponent(searchTerm)}`,
+        {
+          headers: getAuthHeaders(),
+        },
       );
+
+      if (handleUnauthorized(response)) return;
 
       if (!response.ok) {
         throw new Error("Failed to load employees.");
@@ -38,7 +69,7 @@ function Employees() {
       const data = await response.json();
       setEmployees(data);
     } catch (error) {
-      setError("Could not load employees. Check your backend.");
+      setError(error.message || "Could not load employees.");
     } finally {
       setLoading(false);
     }
@@ -94,9 +125,7 @@ function Employees() {
         isEditing ? `${API_URL}/${editingId}` : API_URL,
         {
           method: isEditing ? "PUT" : "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: getAuthHeaders(true),
           body: JSON.stringify({
             ...form,
             fullName: form.fullName.trim(),
@@ -109,6 +138,8 @@ function Employees() {
       );
 
       const data = await response.json();
+
+      if (handleUnauthorized(response)) return;
 
       if (!response.ok) {
         throw new Error(data.message || "Could not save employee.");
@@ -165,9 +196,12 @@ function Employees() {
     try {
       const response = await fetch(`${API_URL}/${employee._id}`, {
         method: "DELETE",
+        headers: getAuthHeaders(),
       });
 
       const data = await response.json();
+
+      if (handleUnauthorized(response)) return;
 
       if (!response.ok) {
         throw new Error(data.message || "Could not delete employee.");
@@ -356,9 +390,11 @@ function Employees() {
                 <p>
                   <strong>Email:</strong> {employee.email}
                 </p>
+
                 <p>
                   <strong>Phone:</strong> {employee.phone || "Not provided"}
                 </p>
+
                 <p>
                   <strong>Salary:</strong> $
                   {Number(employee.salary).toLocaleString("en-US", {
