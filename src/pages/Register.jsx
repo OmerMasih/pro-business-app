@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import "./Register.css";
 
-const API_URL = "https://pro-business-app-1.onrender.com";
+const API_URL = "https://pro-business-app-1.onrender.com/api/auth/register";
 
 function Register() {
   const navigate = useNavigate();
