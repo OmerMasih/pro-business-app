@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Products.css";
 
-const API_URL = "http://localhost:5000/api/products";
+const API_URL = "https://pro-business-app-1.onrender.com/api/products";
 
 const CATEGORIES = [
   "Electronics",

@@ -15,7 +15,7 @@ import {
 } from "recharts";
 import "./Home.css";
 
-const API_URL = "http://localhost:5000/api";
+const API_URL = "https://pro-business-app-1.onrender.com";
 
 const CHART_COLORS = ["#16a34a", "#ef4444"];
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./Employees.css";
 
-const API_URL = "http://localhost:5000/api/employees";
+const API_URL = "https://pro-business-app-1.onrender.com";
 
 const emptyForm = {
   fullName: "",
